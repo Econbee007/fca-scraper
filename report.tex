@@ -1,0 +1,169 @@
+\documentclass[12pt]{article}
+
+% --- Packages ---
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{enumitem}
+% Make LaTeX more forgiving with line breaks
+\sloppy
+% --- Document starts ---
+\begin{document}
+
+\title{Report on Automated Scraping of Daily Prices Data from FCA Website}
+\author{Akash Kundu}
+\date{\today}
+
+\maketitle
+
+\section*{Introduction}
+This project focused on automating the process of collecting \textbf{Daily Prices} data 
+from the \textbf{FCA InfoWeb portal} 
+(\url{https://fcainfoweb.nic.in/reports/report_menu_web.aspx}).  
+The website provides tabular daily commodity price reports, but the data can only be 
+retrieved one date at a time after solving a captcha.  
+Since the dataset of interest spanned multiple months (February--April 2020), 
+we designed a robust scraping workflow using Python, Selenium, and Excel integration.
+
+\section*{Workflow Overview}
+The workflow consisted of several distinct stages:
+
+\begin{enumerate}[label=\textbf{Step \arabic*:}, leftmargin=*]
+
+\item \textbf{Navigating to the Website}  
+The scraper first launches the FCA InfoWeb portal using Selenium and the Chrome WebDriver.  
+
+\item \textbf{Selecting Report Type}  
+On the portal, the following selections are made:
+\begin{itemize}
+    \item Choose \emph{Price Report}.
+    \item From the dropdown, select \emph{Daily Prices}.
+\end{itemize}
+
+\item \textbf{Inputting Date and Solving Captcha}  
+For each target date, the script:
+\begin{itemize}
+    \item Clears the date input field and enters the required date.
+    \item Waits for manual user input to solve the captcha and press ``Get Data''.
+\end{itemize}
+
+\item \textbf{Extracting Tabular Data}  
+Once the table loads, the script scrapes all rows and columns displayed for that date.  
+The date is also stored alongside each row to maintain temporal alignment.
+
+\item \textbf{Incremental Saving}  
+To avoid data loss in case of crashes or interruptions:
+\begin{itemize}
+    \item Each scraped batch (corresponding to one date) is appended directly to an Excel file.
+    \item This ensures the file always contains progress up to the most recent successful scrape.
+\end{itemize}
+
+\item \textbf{Handling Missing Dates}  
+Some dates occasionally failed to load due to site or captcha issues.  
+For these cases:
+\begin{itemize}
+    \item A separate script was created to target only the missing dates.
+    \item Before scraping, the script checks which dates already exist in the Excel file 
+    to avoid duplicates.
+\end{itemize}
+
+\item \textbf{Post-Processing the Dataset}  
+After the scraping stage, additional cleaning was applied:
+\begin{itemize}
+    \item The first row of data (which usually contained the table headers) was extracted 
+    and used as the global column names for the dataset.
+    \item The \emph{Date} column was converted into proper date format.
+    \item All rows were sorted chronologically to create a consistent time series dataset.
+    \item The final cleaned dataset was exported into a new Excel file.
+\end{itemize}
+
+\end{enumerate}
+
+\section*{Python Script Responsibilities}
+To keep the project modular, different Python files were designed for specific tasks:
+
+\begin{itemize}
+    \item \texttt{scraping.py}  
+    Handles the main scraping logic:
+    \begin{itemize}
+        \item Launches Selenium and navigates to the FCA InfoWeb portal.
+        \item Inputs dates, waits for captcha solving, and scrapes tabular data.
+        \item Saves scraped results incrementally into an Excel file.
+    \end{itemize}
+
+    \item \texttt{missing\_dates.py}  
+    Focuses on handling missing or failed dates:
+    \begin{itemize}
+        \item Accepts a list of user-provided dates.
+        \item Checks which dates are already present in the Excel file.
+        \item Scrapes only the missing dates and appends them to the dataset.
+    \end{itemize}
+
+    \item \texttt{fca\_clean\_sort.py}  
+    Performs post-processing of the collected dataset:
+    \begin{itemize}
+        \item Reads the combined Excel file.
+        \item Uses the first row of data as column headers.
+        \item Ensures the \emph{Date} column is in correct date format.
+        \item Sorts the entire dataset chronologically.
+        \item Outputs a clean, analysis-ready Excel file.
+    \end{itemize}
+\end{itemize}
+
+\section*{Results}
+By following the above workflow:
+\begin{itemize}
+    \item Daily commodity price data was collected for the period of February--April 2020.
+    \item Missing dates were successfully handled and appended without duplication.
+    \item The final dataset was organized in Excel, with correct headers and chronological ordering.
+\end{itemize}
+
+\section*{Reproducibility: Steps to Recreate the Project}
+If a professor or colleague wishes to reproduce this work, the following steps should be followed:
+
+\begin{enumerate}[label=\textbf{Step \arabic*:}, leftmargin=*]
+    \item \textbf{Set up the Environment}  
+    \begin{itemize}
+        \item Install Python (3.9+ recommended).  
+        \item Install Google Chrome.  
+        \item Create a virtual environment: \texttt{python -m venv .venv}  
+        \item Activate it: \verb|.venv\Scripts\activate| (Windows).  
+        \item Install dependencies:  
+        \begin{verbatim}
+pip install selenium pandas openpyxl webdriver-manager
+        \end{verbatim}
+    \end{itemize}
+
+    \item \textbf{Run Initial Scraper}  
+    Execute \texttt{scraper.py} to scrape data for a given list of dates.  
+    Example: scrape February to April 2020 in bulk.
+
+    \item \textbf{Handle Missing Dates}  
+    If any dates failed to scrape, run \texttt{retry\_missing.py} and pass only those dates.  
+    The script will append data without creating duplicates.
+
+    \item \textbf{Clean and Sort Dataset}  
+    Run \texttt{clean\_and\_sort.py} to:
+    \begin{itemize}
+        \item Apply the proper headers (from the first scraped table).
+        \item Ensure the \emph{Date} column is in correct format.
+        \item Sort all rows chronologically.
+    \end{itemize}
+
+    \item \textbf{Final Output}  
+    The cleaned dataset is saved into a new Excel file (e.g., \texttt{daily\_prices\_cleaned.xlsx}) 
+    ready for analysis.
+\end{enumerate}
+
+\section*{Conclusion}
+The project successfully automated what would otherwise be a highly repetitive manual task.  
+Key achievements included:
+\begin{itemize}
+    \item Automation of navigation and data extraction from a captcha-protected portal.
+    \item Incremental saving for reliability.
+    \item Post-processing for consistent, analysis-ready data.
+    \item Modular Python scripts for scraping, retrying missing dates, and cleaning.
+\end{itemize}
+This workflow can be extended to scrape additional time periods or adapted for similar government data portals.
+
+\end{document}
